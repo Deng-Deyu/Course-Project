@@ -1,0 +1,22 @@
+# Exclude rules / agents files
+AGENTS.md
+AGENT.md
+AGEMT.md
+
+# Exclude academic/presentation formats as requested
+*.pdf
+*.docx
+*.pptx
+~$*
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Local environments / artifacts
+.venv/
+.gemini/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
