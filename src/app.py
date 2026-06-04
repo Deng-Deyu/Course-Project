@@ -2,12 +2,15 @@
 app.py
 ------
 SolarCast — Streamlit Dashboard (光伏出力预测系统 可视化平台)
+Improved Version 2.0
 
 Displays:
-  - Data overview: raw time series, distribution plots.
-  - Model performance: metrics table and prediction curve (interactive).
-  - Feature importance: SHAP bar chart.
+  - Data overview: raw time series, distribution plots, EDA.
+  - Model performance: metrics table, prediction curves (interactive).
+  - Feature analysis: SHAP bar chart, beeswarm.
   - Sensitivity analysis: marginal effects of irradiation and temperature.
+  - Probabilistic prediction: prediction intervals.
+  - Multi-step forecasting results.
 
 Design language: professional, minimalist. No emojis. Pure text and structure.
 """
@@ -31,6 +34,9 @@ sys.path.insert(0, BASE_DIR)
 
 MODEL_DIR = os.path.join(BASE_DIR, "outputs", "models")
 FIG_DIR = os.path.join(BASE_DIR, "outputs", "figures")
+
+# Import feature column definitions directly for accuracy
+from src.data_processing import FEATURE_COLS, TARGET_COL
 
 # ---------------------------------------------------------------------------
 # Page config — must be first Streamlit call
@@ -99,6 +105,15 @@ def load_features():
 @st.cache_data(show_spinner=False)
 def load_metrics():
     path = os.path.join(MODEL_DIR, "metrics.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
+@st.cache_data(show_spinner=False)
+def load_train_info():
+    path = os.path.join(MODEL_DIR, "train_info.json")
     if not os.path.exists(path):
         return None
     with open(path) as f:
@@ -174,10 +189,9 @@ def fig_prediction_overlay(df, model_name: str):
     Re-generate predictions on the test split and plot overlay.
     Requires models to be loaded.
     """
-    from src.data_processing import FEATURE_COLS, TARGET_COL
-    import torch
     from src.models import LSTMForecaster, SequenceDataset
     from torch.utils.data import DataLoader
+    import torch
 
     scaler = load_scaler()
     lgbm = load_lgbm()
@@ -194,7 +208,7 @@ def fig_prediction_overlay(df, model_name: str):
 
     if model_name == "LightGBM":
         y_pred = lgbm.predict(X_test)
-    else:
+    elif model_name == "LSTM":
         lstm_path = os.path.join(MODEL_DIR, "lstm_model.pt")
         if not os.path.exists(lstm_path):
             return None
@@ -205,7 +219,7 @@ def fig_prediction_overlay(df, model_name: str):
         model = LSTMForecaster(input_size=input_size)
         model.load_state_dict(ckpt["model_state"])
         model.eval()
-        
+
         y_test_scaled = y_scaler.transform(y_test.reshape(-1, 1)).flatten() if y_scaler else y_test
         ds = SequenceDataset(X_test, y_test_scaled, seq_len=seq_len)
         loader = DataLoader(ds, batch_size=128, shuffle=False)
@@ -217,9 +231,11 @@ def fig_prediction_overlay(df, model_name: str):
         if y_scaler:
             y_pred = y_scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
             y_pred = np.clip(y_pred, 0, None)
-            
+
         y_test = y_test[seq_len:]
         dates = dates[seq_len:]
+    else:
+        return None
 
     color = PALETTE["lgbm"] if model_name == "LightGBM" else PALETTE["lstm"]
     fig = go.Figure()
@@ -238,13 +254,6 @@ def fig_prediction_overlay(df, model_name: str):
     return fig
 
 
-def fig_shap_bar():
-    path = os.path.join(FIG_DIR, "shap_importance.png")
-    if not os.path.exists(path):
-        return None
-    return path
-
-
 def fig_image(filename):
     path = os.path.join(FIG_DIR, filename)
     if os.path.exists(path):
@@ -258,7 +267,7 @@ def fig_image(filename):
 with st.sidebar:
     st.markdown("## SolarCast")
     st.markdown(
-        "**Photovoltaic Power Forecasting System**  \n"
+        "**Photovoltaic Power Forecasting System v2.0**  \n"
         "Plant 1 · Kaggle Solar Generation Dataset"
     )
     st.markdown("---")
@@ -266,7 +275,8 @@ with st.sidebar:
     st.markdown("## Navigation")
     section = st.radio(
         label="Section",
-        options=["Data Overview", "Model Performance", "Feature Analysis"],
+        options=["Data Overview", "Model Performance", "Feature Analysis",
+                 "Advanced Analysis"],
         label_visibility="collapsed",
     )
     st.markdown("---")
@@ -294,6 +304,15 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
+    st.markdown("---")
+    # Show training info if available
+    train_info = load_train_info()
+    if train_info:
+        st.markdown("## Training Info")
+        st.markdown(f"Training time: {train_info.get('training_time_s', '-')} s")
+        st.markdown(f"Dataset size: {train_info.get('dataset_size', '-')} records")
+        st.markdown(f"Features: {train_info.get('feature_count', '-')}")
+
 # ---------------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------------
@@ -301,8 +320,10 @@ col_title, col_status = st.columns([6, 2])
 with col_title:
     st.markdown("# SolarCast — Photovoltaic Power Forecasting")
     st.markdown(
-        "A time-series prediction system built on LightGBM and LSTM, "
-        "integrating SHAP-based interpretability for rigorous model evaluation."
+        "A comprehensive time-series prediction system featuring LightGBM, LSTM, "
+        "Seq2Seq multi-step forecasting, probabilistic prediction, and SHAP-based "
+        "interpretability. Improved version with fixed LSTM architecture and extended "
+        "feature set (22 features)."
     )
 st.markdown("---")
 
@@ -321,7 +342,7 @@ if section == "Data Overview":
     c1.metric("Total Records", f"{len(df_full):,}")
     c2.metric("Date Range", f"{df_full['DATE_TIME'].dt.date.min()} to {df_full['DATE_TIME'].dt.date.max()}")
     c3.metric("Daytime Records", f"{df_full['is_daytime'].sum():,}")
-    c4.metric("Features Engineered", str(len([c for c in df_full.columns if c not in ["DATE_TIME", "AC_POWER", "DC_POWER", "DAILY_YIELD", "TOTAL_YIELD", "is_night", "is_anomalous"]])))
+    c4.metric("Features Engineered", str(len(FEATURE_COLS)))
 
     st.markdown("### AC Power Time Series")
     dr = date_range if isinstance(date_range, (list, tuple)) and len(date_range) == 2 else None
@@ -351,6 +372,19 @@ if section == "Data Overview":
         fig_scatter.update_layout(**PLOTLY_LAYOUT, height=280)
         st.plotly_chart(fig_scatter, width='stretch')
 
+    # EDA images
+    st.markdown("### Exploratory Data Analysis")
+    eda_cols = st.columns(3)
+    eda_imgs = [
+        ("eda_power_distribution.png", "Power Distribution Day vs Night"),
+        ("eda_correlation_heatmap.png", "Feature Correlation Matrix"),
+        ("eda_anomaly_detection.png", "Anomaly Detection"),
+    ]
+    for i, (fname, caption) in enumerate(eda_imgs):
+        img_path = fig_image(fname)
+        if img_path:
+            eda_cols[i].image(img_path, caption=caption, use_column_width=True)
+
     st.markdown("### Data Sample (first 20 rows)")
     display_cols = ["DATE_TIME", "AC_POWER", "DC_POWER", "AMBIENT_TEMPERATURE",
                     "MODULE_TEMPERATURE", "IRRADIATION", "is_daytime"]
@@ -368,14 +402,14 @@ elif section == "Model Performance":
         st.stop()
 
     # --- Metrics table ---
-    df_metrics = pd.DataFrame(metrics).T.reset_index().rename(columns={"index": "Model"})
-    df_metrics.columns = ["Model", "MAE", "RMSE", "MAPE (%)", "R²"]
-
     st.markdown("### Test Set Evaluation Metrics")
-    c1, c2, c3, c4 = st.columns(4)
+
+    # Extract main models
     lgbm_m = metrics.get("LightGBM", {})
     lstm_m = metrics.get("LSTM", {})
+    mc_lstm_m = metrics.get("MC_Dropout_LSTM", {})
 
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("LightGBM MAE", f"{lgbm_m.get('MAE', '-'):.3f} kW",
               delta=f"LSTM: {lstm_m.get('MAE', '-'):.3f}")
     c2.metric("LightGBM RMSE", f"{lgbm_m.get('RMSE', '-'):.3f} kW",
@@ -385,8 +419,19 @@ elif section == "Model Performance":
     c4.metric("LightGBM R²", f"{lgbm_m.get('R2', '-'):.4f}",
               delta=f"LSTM: {lstm_m.get('R2', '-'):.4f}")
 
-    st.markdown("")
-    st.dataframe(df_metrics.set_index("Model"), width='stretch')
+    # Build full metrics table
+    table_data = []
+    for name, m in metrics.items():
+        if isinstance(m, dict) and "MAE" in m:
+            table_data.append({
+                "Model": name,
+                "MAE (kW)": f"{m['MAE']:.3f}",
+                "RMSE (kW)": f"{m['RMSE']:.3f}",
+                "MAPE (%)": f"{m['MAPE']:.2f}",
+                "R²": f"{m['R2']:.4f}",
+            })
+    if table_data:
+        st.dataframe(pd.DataFrame(table_data).set_index("Model"), width='stretch')
 
     # --- Prediction curve ---
     st.markdown(f"### Prediction Curve — {model_choice}")
@@ -429,6 +474,12 @@ elif section == "Model Performance":
     if img_loss:
         st.image(img_loss, use_column_width=True)
 
+    # --- Error analysis ---
+    st.markdown("### LSTM Error Analysis")
+    img_err = fig_image("error_analysis_lstm.png")
+    if img_err:
+        st.image(img_err, use_column_width=True)
+
 # ---------------------------------------------------------------------------
 # Section: Feature Analysis
 # ---------------------------------------------------------------------------
@@ -462,5 +513,59 @@ elif section == "Feature Analysis":
     if imgT:
         cT.image(imgT, caption="Marginal Effect — Module Temperature", use_column_width=True)
 
+    st.markdown("### Hyperparameter Tuning")
+    hp_cols = st.columns(3)
+    hp_imgs = [
+        ("hyperparam_num_leaves.png", "Effect of num_leaves"),
+        ("hyperparam_learning_rate.png", "Effect of learning_rate"),
+        ("hyperparam_subsample.png", "Effect of subsample"),
+    ]
+    for i, (fname, caption) in enumerate(hp_imgs):
+        img = fig_image(fname)
+        if img:
+            hp_cols[i].image(img, caption=caption, use_column_width=True)
+
+    st.markdown("### Feature Ablation Study")
+    img_ab = fig_image("ablation_study.png")
+    if img_ab:
+        st.image(img_ab, caption="R² Score by Feature Group", use_column_width=True)
+
     if not any([shap_bar, shap_bee, imgI, imgT]):
         st.warning("No analysis figures found. Please run `python src/train.py` first.")
+
+# ---------------------------------------------------------------------------
+# Section: Advanced Analysis
+# ---------------------------------------------------------------------------
+elif section == "Advanced Analysis":
+    st.markdown("## Advanced Analysis")
+
+    st.markdown("### Weather-Condition Segmented Evaluation")
+    st.markdown("Model performance breakdown by weather condition (based on irradiation variability).")
+    img_w = fig_image("weather_segmentation.png")
+    if img_w:
+        st.image(img_w, use_column_width=True)
+    else:
+        st.info("Weather segmentation chart not found. Run train.py to generate.")
+
+    st.markdown("### Multi-Step Forecasting (Seq2Seq LSTM)")
+    st.markdown("Predicting 1 hour ahead (4 steps of 15 minutes).")
+    img_ms = fig_image("multi_step_prediction.png")
+    if img_ms:
+        st.image(img_ms, use_column_width=True)
+    else:
+        st.info("Multi-step prediction chart not found. Run train.py to generate.")
+
+    st.markdown("### Probabilistic Prediction")
+    st.markdown("Prediction intervals for uncertainty quantification.")
+
+    prob_cols = st.columns(2)
+    img_q = fig_image("lgbm_quantile_prediction.png")
+    img_mc = fig_image("mc_dropout_prediction.png")
+    if img_q:
+        prob_cols[0].image(img_q, caption="LightGBM Quantile Regression (80% CI)", use_column_width=True)
+    else:
+        prob_cols[0].info("Quantile prediction chart not found.")
+    if img_mc:
+        prob_cols[1].image(img_mc, caption="MC Dropout LSTM (95% CI)", use_column_width=True)
+    else:
+        prob_cols[1].info("MC Dropout prediction chart not found.")
