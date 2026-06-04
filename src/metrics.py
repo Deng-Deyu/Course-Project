@@ -6,6 +6,8 @@ Shared evaluation metrics for SolarCast.
 Functions:
   - compute_metrics(y_true, y_pred) -> dict
       Returns MAE, RMSE, MAPE (excludes zero-power records), R².
+  - compute_interval_metrics(y_true, y_pred_low, y_pred_high) -> dict
+      Returns prediction interval coverage and width.
 """
 
 import numpy as np
@@ -42,3 +44,49 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
 
     return {"MAE": round(mae, 4), "RMSE": round(rmse, 4),
             "MAPE": round(mape, 4), "R2": round(r2, 6)}
+
+
+def compute_interval_metrics(y_true: np.ndarray,
+                              y_pred_low: np.ndarray,
+                              y_pred_high: np.ndarray,
+                              alpha: float = 0.8) -> dict:
+    """
+    Evaluate probabilistic prediction intervals.
+
+    Args:
+        y_true      : ground-truth values.
+        y_pred_low  : lower bound of prediction interval.
+        y_pred_high : upper bound of prediction interval.
+        alpha       : target confidence level (e.g. 0.8 for 80% CI).
+
+    Returns:
+        dict with keys: coverage (actual fraction in interval),
+                        avg_width (average interval width),
+                        PICP (prediction interval coverage probability),
+                        MPIW (mean prediction interval width).
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred_low = np.asarray(y_pred_low, dtype=float)
+    y_pred_high = np.asarray(y_pred_high, dtype=float)
+
+    in_interval = (y_true >= y_pred_low) & (y_true <= y_pred_high)
+    coverage = in_interval.mean()
+
+    widths = y_pred_high - y_pred_low
+    avg_width = np.mean(widths)
+
+    # Daytime-only
+    mask = y_true > 1.0
+    if mask.sum() > 0:
+        coverage_day = in_interval[mask].mean()
+        avg_width_day = np.mean(widths[mask])
+    else:
+        coverage_day = float("nan")
+        avg_width_day = float("nan")
+
+    return {
+        "PICP": round(coverage, 4),           # overall coverage
+        "PICP_day": round(coverage_day, 4),   # daytime coverage
+        "MPIW": round(avg_width, 2),          # mean width (kW)
+        "MPIW_day": round(avg_width_day, 2),  # daytime mean width (kW)
+    }
