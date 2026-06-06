@@ -1,0 +1,35 @@
+# Exclude rules / agents files
+AGENTS.md
+AGENT.md
+AGEMT.md
+
+# Exclude academic/presentation formats as requested
+*.pdf
+*.docx
+*.pptx
+~$*
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Local environments / artifacts
+.venv/
+.gemini/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Training outputs (generated files)
+outputs/
+node_cache/
+
+# Raw data files (large, should be downloaded separately)
+data/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
