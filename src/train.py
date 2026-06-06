@@ -340,7 +340,7 @@ def train_lstm(df_train, df_val, df_test, scaler,
     model_path = os.path.join(MODEL_DIR, "lstm_model.pt")
     with open(model_path, "wb") as f:
         torch.save({"model_state": best_state, "seq_len": seq_len,
-                    "input_size": len(FEATURE_COLS), "y_scaler": y_scaler}, f)
+                    "input_size": len(FEATURE_COLS)}, f)
     logger.info("LSTM model saved to %s", model_path)
 
     return model, y_test_lstm, y_pred_test, metrics_test, train_losses, val_losses

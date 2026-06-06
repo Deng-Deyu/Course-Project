@@ -21,7 +21,7 @@ style: |
   }
 
   section img {
-    max-height: 240px;
+    max-height: 220px;
     object-fit: contain;
   }
 
@@ -34,27 +34,27 @@ style: |
   }
 
   h1 {
-    font-size: 2rem;
+    font-size: 1.9rem;
     font-weight: 700;
     color: var(--color-dark);
     border-bottom: 2.5px solid var(--color-red);
     padding-bottom: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   h2 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--color-blue);
-    margin-top: 16px;
-    margin-bottom: 8px;
+    margin-top: 12px;
+    margin-bottom: 6px;
   }
 
   h3 {
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--color-red);
-    margin-top: 12px;
+    margin-top: 10px;
     margin-bottom: 4px;
   }
 
@@ -77,13 +77,13 @@ style: |
   th {
     background: var(--color-dark);
     color: white;
-    padding: 8px 12px;
+    padding: 6px 10px;
     text-align: center;
     font-weight: 600;
   }
 
   td {
-    padding: 7px 12px;
+    padding: 5px 10px;
     border: 1px solid var(--color-line);
     text-align: center;
   }
@@ -94,9 +94,9 @@ style: |
   code {
     background: #f0f0f5;
     border-radius: 4px;
-    padding: 1px 5px;
-    font-size: 0.82em;
-    font-family: 'Consolas', 'Courier New', monospace;
+    padding: 1px 4px;
+    font-size: 0.8em;
+    font-family: 'Consolas', monospace;
     color: var(--color-blue);
   }
 
@@ -104,9 +104,9 @@ style: |
     background: #1e1e2e;
     color: #cdd6f4;
     border-radius: 8px;
-    padding: 16px 20px;
-    font-size: 0.78rem;
-    line-height: 1.5;
+    padding: 12px 16px;
+    font-size: 0.72rem;
+    line-height: 1.4;
     overflow-x: auto;
   }
 
@@ -115,10 +115,10 @@ style: |
     background: var(--color-red);
     color: white;
     border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 0.75rem;
+    padding: 2px 6px;
+    font-size: 0.7rem;
     font-weight: 600;
-    margin-right: 6px;
+    margin-right: 4px;
   }
   .tag-blue { background: var(--color-blue); }
 
@@ -139,7 +139,7 @@ style: |
     background: var(--color-red);
   }
   section.cover h1 {
-    font-size: 3.2rem;
+    font-size: 3rem;
     color: white;
     border: none;
     margin-bottom: 8px;
@@ -153,17 +153,17 @@ style: |
   .card {
     background: white;
     border: 1px solid var(--color-line);
-    border-radius: 8px;
-    padding: 14px 18px;
+    border-radius: 6px;
+    padding: 10px 14px;
   }
   .card-title {
     background: var(--color-blue);
     color: white;
-    border-radius: 6px 6px 0 0;
-    padding: 6px 14px;
-    font-size: 0.88rem;
+    border-radius: 4px 4px 0 0;
+    padding: 4px 10px;
+    font-size: 0.8rem;
     font-weight: 700;
-    margin: -14px -18px 10px -18px;
+    margin: -10px -14px 8px -14px;
   }
   .card-title.red { background: var(--color-red); }
 
@@ -204,8 +204,6 @@ Kaggle Solar Power Generation Data — Plant 1
 
 2026年6月 · 改进版
 
----
-
 <!-- _class: -->
 
 <div class="nav-label">数据处理</div>
@@ -238,8 +236,6 @@ hour_sin = sin(2π × hour / 24); hour_cos = cos(2π × hour / 24)
 
 <div class="nav-label">特征工程</div>
 
-# 特征工程：22 维输入特征
-
 <div class="cols">
 <div class="card">
 <div class="card-title">时间特征（8个）</div>
@@ -267,6 +263,14 @@ hour_sin = sin(2π × hour / 24); hour_cos = cos(2π × hour / 24)
 - `ac_roll_mean_4`（1h均值）、`ac_roll_mean_8`（2h均值）、`ac_roll_std_4`（1h标准差）
 
 </div>
+
+---
+
+<!-- _class: -->
+
+<div class="nav-label">模型原理</div>
+
+# LightGBM — 核心原理与训练配置
 
 ---
 
@@ -411,7 +415,189 @@ src/
 
 <div class="nav-label">评估指标</div>
 
-# 评估指标
+<div class="cols">
+<div>
+
+## 核心数学公式
+
+**负梯度拟合**（残差学习）：
+
+$$r_{im} = -\left[\frac{\partial L(y_i, f(x_i))}{\partial f(x_i)}\right]_{f=f_{m-1}}$$
+
+**叶节点输出值**：
+
+$$\theta_{jm} = \arg\min_\theta \sum_{x_i \in R_{jm}} L(y_i, F_{m-1}(x_i) + \theta)$$
+
+**分裂增益**：
+
+$$Gain = \frac{1}{2}\left[\frac{(\sum_{i \in L} g_i)^2}{n_L + \lambda} + \frac{(\sum_{i \in R} g_i)^2}{n_R + \lambda} - \frac{(\sum_{i \in I} g_i)^2}{n_I + \lambda}\right]$$
+
+</div>
+<div class="card" style="margin-top: 0;">
+<div class="card-title">为何选择 LightGBM</div>
+
+- **直方图加速**：连续特征离散化分箱，降低计算复杂度
+- **Leaf-wise 分裂**：优先扩展增益最大的叶节点
+- **SHAP 原生支持**：精确计算特征贡献值
+- **训练速度**：CPU 通常 < 5秒
+
+</div>
+</div>
+
+---
+
+# LightGBM：训练配置与超参数
+
+<div class="cols">
+<div>
+
+## 关键超参数
+
+| 参数 | 取值 | 说明 |
+|------|------|------|
+| n_estimators | 800 | 最大树数量 |
+| learning_rate | 0.05 | 步长 |
+| num_leaves | 63 | 叶子节点数 |
+| subsample | 0.8 | 行抽样比例 |
+| 早停轮数 | 50 | 防止过拟合 |
+
+## 训练流程
+
+输入19个特征（标准化）→ 直方图离散分箱 → 残差梯度迭代 → 早停保护 → 输出非负裁剪
+
+</div>
+<div class="card">
+<div class="card-title red">LightGBM 性能（R² = 0.9947）</div>
+
+| 指标 | 数值 |
+|------|------|
+| MAE | 296.46 kW |
+| RMSE | 598.18 kW |
+| MAPE | 13.17% |
+
+验证：显式滞后特征近乎完美地表征了短期出力惯性
+
+</div>
+</div>
+
+---
+
+# LSTM：长短期记忆网络原理
+
+<div class="cols">
+<div>
+
+## 门控机制数学公式
+
+**遗忘门**：决定丢弃多少旧记忆
+$$f_t = \sigma(W_f \cdot [h_{t-1}, x_t] + b_f)$$
+
+**输入门**：决定写入多少新信息
+$$i_t = \sigma(W_i \cdot [h_{t-1}, x_t] + b_i)$$
+
+**候选记忆**：新记忆候选内容
+$$\tilde{C}_t = \tanh(W_C \cdot [h_{t-1}, x_t] + b_C)$$
+
+**细胞状态更新**：新旧记忆融合
+$$C_t = f_t \odot C_{t-1} + i_t \odot \tilde{C}_t$$
+
+**输出门**：决定输出多少
+$$o_t = \sigma(W_o \cdot [h_{t-1}, x_t] + b_o)$$
+
+**隐藏状态**：$h_t = o_t \odot \tanh(C_t)$
+
+</div>
+<div class="card">
+<div class="card-title">网络架构</div>
+
+- **输入**：24步历史序列（6小时）
+- **结构**：2层 LSTM（hidden=128，dropout=0.2）
+- **输出层**：Linear(128→64→1)，推理后 clip(pred, 0, ∞)
+- **参数量**：133,953
+
+</div>
+</div>
+
+---
+
+# LSTM：训练配置与性能
+
+<div class="cols">
+<div>
+
+## 训练超参数
+
+| 参数 | 取值 |
+|------|------|
+| 序列长度 | 24步（6小时） |
+| 批次大小 | 64 |
+| 优化器 | Adam（lr=1e-3） |
+| 损失函数 | MSE |
+| 早停 | 10轮无改善 |
+| 梯度裁剪 | max_norm=1.0 |
+
+## 优化策略
+
+- L2 权重衰减（weight_decay=1e-5）
+- ReduceLROnPlateau 动态降学习率
+- 最多60个Epoch
+
+</div>
+<div class="card">
+<div class="card-title red">LSTM 性能（R² = 0.8497）</div>
+
+| 指标 | 数值 |
+|------|------|
+| MAE | 1684.18 kW |
+| RMSE | 3228.34 kW |
+| MAPE | 53.86% |
+
+分析：手工滞后特征比LSTM隐式时间依赖更直接有效，导致传统方法在此任务上更优
+
+</div>
+</div>
+
+---
+
+# 系统架构与技术难点
+
+<div class="cols">
+<div>
+
+## 模块化代码结构
+
+```
+src/
+├── data_processing.py  # 6步流水线
+├── models.py           # LightGBM + LSTM
+├── metrics.py          # MAE/RMSE/MAPE/R²
+├── train.py            # 训练 + SHAP + 图表
+└── app.py              # Streamlit 仪表盘
+```
+
+</div>
+<div class="card">
+<div class="card-title red">关键技术难点与对策</div>
+
+| 难点 | 解决方案 |
+|------|---------|
+| 逆变器级→电站级 | groupby 聚合 AC_POWER |
+| 夜间 vs 故障零值 | 辐照度阈值判断 |
+| 时刻23与0距离远 | sin/cos 周期编码 |
+| MAPE 夜间分母问题 | 仅白天记录计算 |
+| LSTM 梯度问题 | 梯度裁剪 + ReduceLROnPlateau |
+
+</div>
+</div>
+
+---
+
+# 评估指标与实验结果
+
+<div class="cols">
+<div>
+
+## 四个评估指标
 
 | 指标 | 一句话解释 | LightGBM值 |
 |------|-----------|-----------|
@@ -537,8 +723,7 @@ src/
 # SHAP 可解释性与灵敏度分析
 
 <div class="cols">
-<div class="card">
-<div class="card-title">SHAP 特征重要性排序</div>
+<div>
 
 ![h:180](../outputs/figures/shap_importance.png)
 
@@ -567,21 +752,27 @@ src/
 
 # 结论与贡献
 
-## 核心结论（3 条）
+## 核心结论（3条）
 
-1. **LightGBM + LSTM 在短时域光伏预测上精度相当**（R² 均 > 0.95），验证了原始假设
-2. **辐照度 + 历史滞后功率是预测的第一驱动力**（SHAP 定量验证，与光伏物理规律一致）
-3. **22 维特征工程 + SHAP 解释 + 概率预测 + Streamlit 仪表盘**，形成完整的运营级预测系统
+1. **LightGBM R²=0.9947**：显式特征工程在短时域预测上非常有效
+2. **辐照度+滞后功率**：是预测的第一驱动力，SHAP定量验证
+3. **完整预测系统**：数据清洗 + SHAP解释 + Streamlit仪表盘
 
-## 后续方向（2 条）
+## 未来方向（2条）
 
-| 优先级 | 方向 | 方法 |
-|--------|------|------|
-| 高 | 概率预测增强 | Conformal Prediction（无分布假设的统计预测区间） |
-| 高 | 长时域预测 | 融合 NWP 数值天气预报（GFS/ECMWF），扩展至数天 |
+1. **多步预测**：Seq2Seq架构，一次输出未来1小时
+2. **概率预测**：分位数回归给出90%置信区间
 
-## 完成度：基础 100% + 进阶 100%
-数据清洗 ✅ | 异常识别 ✅ | 多步预测 ✅ | 概率预测 ✅ | SHAP ✅ | 深度学习对比 ✅ | Streamlit ✅
+</div>
+<div class="card">
+<div class="card-title red">技术贡献</div>
+
+- 异常感知的数据清洗流水线
+- 物理可解释的SHAP分析框架
+- 对比实验揭示特征工程的关键作用
+
+</div>
+</div>
 
 ---
 
