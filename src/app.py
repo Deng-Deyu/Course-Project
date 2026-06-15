@@ -97,6 +97,11 @@ st.markdown("""
 def load_features():
     path = os.path.join(MODEL_DIR, "df_features.parquet")
     if not os.path.exists(path):
+        st.warning(f"诊断信息：路径 {path} 不存在。")
+        if os.path.exists(MODEL_DIR):
+            st.warning(f"当前 outputs/models 目录下包含的文件：{os.listdir(MODEL_DIR)}")
+        else:
+            st.warning("outputs/models 目录不存在，请确认代码是否推送成功或在 Streamlit 中 Reboot 重新构建。")
         return None
     return pd.read_parquet(path)
 
@@ -294,13 +299,16 @@ with st.sidebar:
     else:
         date_range = None
 
-    st.markdown("---")
-    st.markdown("## 模型")
-    model_choice = st.selectbox(
-        "Select model for prediction curve",
-        ["LightGBM", "LSTM"],
-        label_visibility="collapsed",
-    )
+    if section == "模型性能":
+        st.markdown("---")
+        st.markdown("## 模型")
+        model_choice = st.selectbox(
+            "Select model for prediction curve",
+            ["LightGBM", "LSTM"],
+            label_visibility="collapsed",
+        )
+    else:
+        model_choice = "LightGBM"
 
     st.markdown("---")
     # Show training info if available
