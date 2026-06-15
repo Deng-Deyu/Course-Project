@@ -1,0 +1,7 @@
+{
+  "training_time_s": 156.3,
+  "lgbm_train_time_s": 0,
+  "dataset_size": 3147,
+  "test_size": 472,
+  "feature_count": 21
+}
