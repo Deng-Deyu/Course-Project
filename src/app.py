@@ -58,7 +58,6 @@ st.markdown("""
     /* Remove Streamlit header/footer chrome */
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
-    header { visibility: hidden; }
 
     /* Sidebar */
     [data-testid="stSidebar"] { background-color: #f7f8fa; border-right: 1px solid #e8eaed; }
