@@ -22,11 +22,8 @@ __pycache__/
 Thumbs.db
 
 # Training outputs (generated files)
-outputs/
 node_cache/
 
-# Raw data files (large, should be downloaded separately)
-data/
 
 # Temporary files
 *.tmp
