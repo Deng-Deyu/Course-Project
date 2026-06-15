@@ -211,7 +211,7 @@ def fig_prediction_overlay(df, model_name: str):
         lstm_path = os.path.join(MODEL_DIR, "lstm_model.pt")
         if not os.path.exists(lstm_path):
             return None
-        ckpt = torch.load(lstm_path, map_location="cpu")
+        ckpt = torch.load(lstm_path, map_location="cpu", weights_only=False)
         seq_len = ckpt["seq_len"]
         input_size = ckpt["input_size"]
         y_scaler = ckpt.get("y_scaler")
