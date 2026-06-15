@@ -93,7 +93,6 @@ st.markdown("""
 # ---------------------------------------------------------------------------
 # Data loading (cached)
 # ---------------------------------------------------------------------------
-@st.cache_data(show_spinner=False)
 def load_features():
     path = os.path.join(MODEL_DIR, "df_features.parquet")
     if not os.path.exists(path):
@@ -106,7 +105,6 @@ def load_features():
     return pd.read_parquet(path)
 
 
-@st.cache_data(show_spinner=False)
 def load_metrics():
     path = os.path.join(MODEL_DIR, "metrics.json")
     if not os.path.exists(path):
@@ -115,7 +113,6 @@ def load_metrics():
         return json.load(f)
 
 
-@st.cache_data(show_spinner=False)
 def load_train_info():
     path = os.path.join(MODEL_DIR, "train_info.json")
     if not os.path.exists(path):
@@ -124,7 +121,6 @@ def load_train_info():
         return json.load(f)
 
 
-@st.cache_resource(show_spinner=False)
 def load_lgbm():
     path = os.path.join(MODEL_DIR, "lgbm_model.pkl")
     if not os.path.exists(path):
@@ -133,7 +129,6 @@ def load_lgbm():
         return pickle.load(f)
 
 
-@st.cache_resource(show_spinner=False)
 def load_scaler():
     path = os.path.join(MODEL_DIR, "scaler.pkl")
     if not os.path.exists(path):
