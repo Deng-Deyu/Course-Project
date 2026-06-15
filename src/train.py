@@ -55,7 +55,7 @@ from src.models import (
     LightGBMForecaster, LSTMForecaster, Seq2SeqLSTM, MCDropoutLSTM,
     SequenceDataset, MultiStepDataset, count_parameters
 )
-from src.metrics import compute_metrics
+from src.metrics import compute_metrics, compute_interval_metrics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -258,7 +258,7 @@ def train_lstm(df_train, df_val, df_test, scaler,
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5, verbose=False)
+        optimizer, mode="min", factor=0.5, patience=5)
     criterion = nn.MSELoss()
 
     # --- Training loop ---
@@ -340,7 +340,7 @@ def train_lstm(df_train, df_val, df_test, scaler,
     model_path = os.path.join(MODEL_DIR, "lstm_model.pt")
     with open(model_path, "wb") as f:
         torch.save({"model_state": best_state, "seq_len": seq_len,
-                    "input_size": len(FEATURE_COLS)}, f)
+                    "input_size": len(FEATURE_COLS), "y_scaler": y_scaler}, f)
     logger.info("LSTM model saved to %s", model_path)
 
     return model, y_test_lstm, y_pred_test, metrics_test, train_losses, val_losses
@@ -395,7 +395,7 @@ def train_lightgbm_quantile(df_train, df_val, df_test, scaler, alpha=0.1):
         import lightgbm as lgb
         model = lgb.LGBMRegressor(**params)
         model.fit(X_train, y_train, eval_set=[(X_val, y_val)],
-                  callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)])
+                  callbacks=[lgb.early_stopping(50), lgb.log_evaluation(0)])
         preds[f"q{q}"] = np.clip(model.predict(X_test), 0, None)
         models[f"q{q}"] = model
 
@@ -447,7 +447,7 @@ def train_seq2seq_lstm(df_train, df_val, df_test, scaler,
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5, verbose=False)
+        optimizer, mode="min", factor=0.5, patience=5)
     criterion = nn.MSELoss()
 
     train_losses, val_losses = [], []
@@ -570,7 +570,7 @@ def train_mc_dropout_lstm(df_train, df_val, df_test, scaler,
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5, verbose=False)
+        optimizer, mode="min", factor=0.5, patience=5)
     criterion = nn.MSELoss()
 
     train_losses, val_losses = [], []
@@ -1052,6 +1052,13 @@ def run_ablation_study(df_train, df_val, df_test, scaler):
         logger.info("  %s: R²=%.4f", name, metrics["R2"])
 
     plot_ablation_comparison(results)
+
+    # Save ablation results to JSON
+    ablation_path = os.path.join(MODEL_DIR, "ablation_results.json")
+    with open(ablation_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    logger.info("Ablation results saved to %s", ablation_path)
+
     return results
 
 
@@ -1109,6 +1116,13 @@ def run_weather_segmentation(df_test, y_test_lgbm, y_pred_lgbm, y_test_lstm, y_p
             }
 
         plot_weather_segmentation(weather_results)
+
+        # Save weather segmentation results to JSON
+        weather_path = os.path.join(MODEL_DIR, "weather_segmentation.json")
+        with open(weather_path, "w", encoding="utf-8") as f:
+            json.dump(weather_results, f, indent=2, ensure_ascii=False)
+        logger.info("Weather segmentation results saved to %s", weather_path)
+
         return weather_results
 
     return {}
@@ -1352,6 +1366,26 @@ def main():
         "LightGBM": metrics_lgbm,
         "LSTM": metrics_lstm,
     }
+
+    # ---- Compute & save PICP/MPIW interval metrics ----
+    interval_metrics = {}
+    if preds_q:
+        q_interval = compute_interval_metrics(y_test_q, preds_q["q0.1"], preds_q["q0.9"])
+        interval_metrics["LightGBM_Quantile_80CI"] = q_interval
+        logger.info("Quantile interval metrics: %s", q_interval)
+
+    if metrics_mc:
+        mc_low = y_pred_mc - 2 * y_std_mc
+        mc_high = y_pred_mc + 2 * y_std_mc
+        mc_interval = compute_interval_metrics(y_test_mc, mc_low, mc_high)
+        interval_metrics["MC_Dropout_LSTM_95CI"] = mc_interval
+        logger.info("MC Dropout interval metrics: %s", mc_interval)
+
+    if interval_metrics:
+        interval_path = os.path.join(MODEL_DIR, "interval_metrics.json")
+        with open(interval_path, "w", encoding="utf-8") as f:
+            json.dump(interval_metrics, f, indent=2, ensure_ascii=False)
+        logger.info("Interval metrics saved to %s", interval_path)
     if preds_q:
         all_metrics_full["LightGBM_Quantile_q0.5"] = compute_metrics(y_test_q, preds_q["q0.5"])
     if multi_metrics:

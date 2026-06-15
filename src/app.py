@@ -176,7 +176,7 @@ def fig_time_series(df, date_range=None):
     fig.update_layout(
         title="AC 功率输出与辐照度 — 电站 1",
         yaxis=dict(title="AC 功率 (kW)"),
-        yaxis2=dict(overlaying="y", side="right", title="辐照度（已归一化）",
+        yaxis2=dict(overlaying="y", side="right", title="Irradiation (scaled)",
                     showgrid=False, linecolor="#e8eaed", showline=True),
         legend=dict(orientation="h", y=1.08),
         height=320,
@@ -240,7 +240,7 @@ def fig_prediction_overlay(df, model_name: str):
     color = PALETTE["lgbm"] if model_name == "LightGBM" else PALETTE["lstm"]
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=dates, y=y_test, mode="lines",
-                             line=dict(color=PALETTE["actual"], width=1), name="真实值"))
+                             line=dict(color=PALETTE["actual"], width=1), name="Actual"))
     fig.add_trace(go.Scatter(x=dates, y=y_pred, mode="lines",
                              line=dict(color=color, width=1, dash="dash"), name=model_name))
     fig.update_layout(PLOTLY_LAYOUT)
@@ -319,8 +319,7 @@ col_title, col_status = st.columns([6, 2])
 with col_title:
     st.markdown("# SolarCast — 光伏出力预测系统")
     st.markdown(
-        "一个完整的时间序列预测系统，采用 LightGBM、LSTM、Seq2Seq 多步预测、概率预测以及基于 SHAP 的可解释性分析。"
-        "改进版本修复了 LSTM 架构问题，扩展特征集至 22 维。"
+        "一个完整的时间序列预测系统，采用 LightGBM、LSTM、Seq2Seq 多步预测、概率预测以及基于 SHAP 的可解释性分析。改进版本修复了 LSTM 架构问题，并扩展特征集至 22 维。"
     )
 st.markdown("---")
 
@@ -330,7 +329,7 @@ st.markdown("---")
 if section == "数据概览":
     df_full = load_features()
     if df_full is None:
-        st.warning("数据集未找到，请先运行 `python src/train.py`。")
+        st.warning("Dataset not found. Please run `python src/train.py` first.")
         st.stop()
 
     st.markdown("## 数据概览")
